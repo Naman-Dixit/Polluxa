@@ -3,7 +3,7 @@
 Polluxa is a high-performance, asynchronous bulk email verification web application built using **FastAPI** (Python) and a clean, responsive frontend. The system evaluates lists of email addresses provided via text or CSV uploads and determines whether they are authentic or will result in a bounce—all without ever sending an actual email to the recipient.
 
 ## 🚀 Live Application URL
-* **Frontend Dashboard:** `https://polluxa-verifier.onrender.com` *(Replace with your exact Render Static Site URL)*
+* **Frontend Dashboard:** https://polluxa-verifier.onrender.com/
 * **Backend API Endpoint:** `https://polluxa.onrender.com`
 
 ---
