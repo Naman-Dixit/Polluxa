@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bulk Email Verifier</title>
+    <style>
+      :root {
+        --primary: #4f46e5;
+        --primary-hover: #4338ca;
+        --background: #f9fafb;
+        --card-bg: #ffffff;
+        --text: #111827;
+        --text-light: #6b7280;
+        --border: #e5e7eb;
+
+        --valid: #10b981;
+        --bounce: #ef4444;
+        --catchall: #f59e0b;
+        --unknown: #6b7280;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: var(--background);
+        color: var(--text);
+        margin: 0;
+        padding: 40px 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 800px;
+        background: var(--card-bg);
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      }
+
+      h1 {
+        margin-top: 0;
+        font-size: 24px;
+        text-align: center;
+        color: var(--text);
+      }
+      p.subtitle {
+        text-align: center;
+        color: var(--text-light);
+        margin-bottom: 30px;
+      }
+
+      /* Drag & Drop Zone */
+      .drop-zone {
+        border: 2px dashed #c7d2fe;
+        padding: 40px 20px;
+        border-radius: 8px;
+        text-align: center;
+        background: #f5f7ff;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .drop-zone:hover,
+      .drop-zone.drag-over {
+        border-color: var(--primary);
+        background: #eef2ff;
+      }
+      .drop-zone input {
+        display: none;
+      }
+      .drop-zone .icon {
+        font-size: 40px;
+        display: block;
+        margin-bottom: 10px;
+      }
+
+      /* Button & Controls */
+      .btn {
+        display: block;
+        width: 100%;
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 20px;
+        transition: background 0.2s;
+      }
+      .btn:hover {
+        background: var(--primary-hover);
+      }
+      .btn:disabled {
+        background: var(--border);
+        cursor: not-allowed;
+      }
+
+      /* Progress Status */
+      .status-container {
+        display: none;
+        margin-top: 25px;
+      }
+      .progress-bar-bg {
+        background: var(--border);
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .progress-bar {
+        background: var(--primary);
+        height: 100%;
+        width: 0%;
+        transition: width 0.3s;
+      }
+      .status-text {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 14px;
+        color: var(--text-light);
+      }
+
+      /* Results Metrics Preview */
+      .metrics {
+        display: none;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-top: 30px;
+      }
+      .metric-card {
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        color: white;
+        font-weight: bold;
+      }
+      .metric-card span {
+        display: block;
+        font-size: 24px;
+        margin-top: 5px;
+      }
+      .bg-valid { background: var(--valid); }
+      .bg-bounce { background: var(--bounce); }
+      .bg-catchall { background: var(--catchall); }
+      .bg-unknown { background: var(--unknown); }
+
+      /* Table Preview */
+      .table-container {
+        display: none;
+        margin-top: 30px;
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 14px;
+      }
+      th {
+        background: #f3f4f6;
+        padding: 12px;
+        position: sticky;
+        top: 0;
+        color: var(--text);
+      }
+      td {
+        padding: 12px;
+        border-top: 1px solid var(--border);
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Bulk Email Verification System</h1>
+      <p class="subtitle">
+        Upload a .csv or .txt file containing one email address per line to run
+        a 3-tier syntax, MX, and SMTP live lookup.
+      </p>
+
+      <form id="uploadForm">
+        <div class="drop-zone" id="dropZone">
+          <div class="icon">📂</div>
+          <strong>Drag & Drop your email list file here</strong>
+          <p style="font-size: 13px; color: var(--text-light); margin: 5px 0 0 0">
+            Supports .csv or .txt files (Up to 5,000 emails capacity)
+          </p>
+          <input type="file" id="fileInput" accept=".csv, .txt" required />
+        </div>
+        <div id="fileSelectedName" style="text-align: center; margin-top: 10px; font-size: 14px; font-weight: 500; color: var(--primary);"></div>
+        <button type="submit" class="btn" id="submitBtn" disabled>
+          Process and Verify List
+        </button>
+      </form>
+
+      <div class="status-container" id="statusContainer">
+        <div class="progress-bar-bg">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="status-text">
+          <span id="statusMessage">Uploading file...</span>
+          <span id="statusPercent">0%</span>
+        </div>
+      </div>
+
+      <div class="metrics" id="metricsGrid">
+        <div class="metric-card bg-valid">Valid <span id="countValid">0</span></div>
+        <div class="metric-card bg-bounce">Bounce <span id="countBounce">0</span></div>
+        <div class="metric-card bg-catchall">Catch-All <span id="countCatchall">0</span></div>
+        <div class="metric-card bg-unknown">Unknown <span id="countUnknown">0</span></div>
+      </div>
+
+      <div class="table-container" id="tableContainer">
+        <table>
+          <thead>
+            <tr>
+              <th>Email Address</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const BACKEND_URL = "http://127.0.0.1:8000/verify-csv/";
+
+      const dropZone = document.getElementById("dropZone");
+      const fileInput = document.getElementById("fileInput");
+      const fileSelectedName = document.getElementById("fileSelectedName");
+      const submitBtn = document.getElementById("submitBtn");
+
+      const statusContainer = document.getElementById("statusContainer");
+      const progressBar = document.getElementById("progressBar");
+      const statusMessage = document.getElementById("statusMessage");
+      const statusPercent = document.getElementById("statusPercent");
+
+      const metricsGrid = document.getElementById("metricsGrid");
+      const tableContainer = document.getElementById("tableContainer");
+      const tableBody = document.getElementById("tableBody");
+
+      dropZone.addEventListener("click", () => fileInput.click());
+
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("drag-over");
+      });
+
+      ["dragleave", "dragend"].forEach((type) => {
+        dropZone.addEventListener(type, () => dropZone.classList.remove("drag-over"));
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+        if (e.dataTransfer.files.length) {
+          fileInput.files = e.dataTransfer.files;
+          updateFileDisplay();
+        }
+      });
+
+      fileInput.addEventListener("change", updateFileDisplay);
+
+      function updateFileDisplay() {
+        if (fileInput.files.length > 0) {
+          fileSelectedName.innerText = `Selected File: ${fileInput.files[0].name}`;
+          submitBtn.disabled = false;
+        }
+      }
+
+      document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!fileInput.files[0]) return;
+
+        submitBtn.disabled = true;
+        statusContainer.style.display = "block";
+        metricsGrid.style.display = "none";
+        tableContainer.style.display = "none";
+        tableBody.innerHTML = "";
+        progressBar.style.width = "0%";
+        statusPercent.innerText = "0%";
+        statusMessage.innerText = "Processing your concurrent bulk queues via API...";
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        let progressInterval = setInterval(() => {
+          let currentWidth = parseFloat(progressBar.style.width) || 0;
+          if (currentWidth < 90) {
+            let nextWidth = currentWidth + (90 - currentWidth) * 0.1;
+            progressBar.style.width = `${nextWidth}%`;
+            statusPercent.innerText = `${Math.round(nextWidth)}%`;
+          }
+        }, 400);
+
+        try {
+          const response = await fetch(BACKEND_URL, {
+            method: "POST",
+            body: formData,
+          });
+
+          clearInterval(progressInterval);
+
+          if (response.ok) {
+            progressBar.style.width = "100%";
+            statusPercent.innerText = "100%";
+            statusMessage.innerText = "Verification Complete! Report Downloaded.";
+
+            const blob = await response.blob();
+            const text = await blob.text();
+
+            parseAndPopulateData(text);
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `verified_report_${Date.now()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } else {
+            statusMessage.innerText = "Error: Mail server structural processing failure.";
+            submitBtn.disabled = false;
+          }
+        } catch (err) {
+          clearInterval(progressInterval);
+          statusMessage.innerText = "Error: Could not establish connection to the backend server API.";
+          submitBtn.disabled = false;
+          console.error(err);
+        }
+      });
+
+      function parseAndPopulateData(csvText) {
+        const lines = csvText.split("\n");
+        let validCount = 0, bounceCount = 0, catchallCount = 0, unknownCount = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          const [email, status] = line.split(",");
+          if (!email || !status) continue;
+
+          const cleanStatus = status.trim().toLowerCase();
+          let badgeClass = "bg-unknown";
+
+          if (cleanStatus.includes("valid")) {
+            validCount++;
+            badgeClass = "bg-valid";
+          } else if (cleanStatus.includes("bounce")) {
+            bounceCount++;
+            badgeClass = "bg-bounce";
+          } else if (cleanStatus.includes("catch-all") || cleanStatus.includes("catchall")) {
+            catchallCount++;
+            badgeClass = "bg-catchall";
+          } else {
+            unknownCount++;
+          }
+
+          const row = `<tr>
+              <td>${email}</td>
+              <td><span class="badge ${badgeClass}">${status}</span></td>
+          </tr>`;
+          tableBody.insertAdjacentHTML("beforeend", row);
+        }
+
+        document.getElementById("countValid").innerText = validCount;
+        document.getElementById("countBounce").innerText = bounceCount;
+        document.getElementById("countCatchall").innerText = catchallCount;
+        document.getElementById("countUnknown").innerText = unknownCount;
+
+        metricsGrid.style.display = "grid";
+        tableContainer.style.display = "block";
+        submitBtn.disabled = false;
+      }
+    </script>
+  </body>
+</html>
