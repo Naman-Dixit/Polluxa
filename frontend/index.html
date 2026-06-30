@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay — Bulk Email Verifier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0e14;
+    --panel:#11151d;
+    --panel-2:#161b25;
+    --line:#232936;
+    --text:#e7eaf0;
+    --muted:#7c8597;
+    --accent:#5ee6a8;       /* valid - signal green */
+    --accent-dim:#1d3d2f;
+    --warn:#ffb454;         /* catch-all - amber */
+    --warn-dim:#3d2f15;
+    --danger2:#ff5c7a;      /* bounce - red */
+    --danger-dim:#3a1722;
+    --unknown:#8a93ff;      /* unknown - violet */
+    --unknown-dim:#221f3d;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 15% -10%, rgba(94,230,168,0.07), transparent 40%),
+      radial-gradient(circle at 100% 0%, rgba(138,147,255,0.06), transparent 35%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Space Grotesk', sans-serif;
+    min-height:100vh;
+  }
+  .mono{font-family:'IBM Plex Mono', monospace;}
+
+  .shell{max-width:1080px;margin:0 auto;padding:48px 24px 80px;}
+
+  /* Header */
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:36px;flex-wrap:wrap;gap:16px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:36px;height:36px;border-radius:8px;
+    background:linear-gradient(135deg, var(--accent), #2bb88a);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'IBM Plex Mono',monospace;font-weight:600;color:#06120d;font-size:15px;
+    box-shadow:0 0 24px rgba(94,230,168,0.35);
+  }
+  .brand h1{font-size:18px;margin:0;font-weight:600;letter-spacing:0.2px;}
+  .brand span.tag{display:block;font-size:11.5px;color:var(--muted);font-family:'IBM Plex Mono',monospace;letter-spacing:0.4px;margin-top:1px;}
+  .pill{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);
+    border:1px solid var(--line);padding:6px 12px;border-radius:100px;
+    display:flex;align-items:center;gap:7px;
+  }
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
+
+  /* Hero / signature element: live status ticker bar across top of card */
+  .hero{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:28px 28px 24px;
+    margin-bottom:28px;
+    position:relative;
+    overflow:hidden;
+  }
+  .hero h2{font-size:26px;margin:0 0 6px;font-weight:600;letter-spacing:-0.3px;}
+  .hero p{color:var(--muted);font-size:14.5px;margin:0 0 22px;max-width:560px;line-height:1.55;}
+
+  /* Drop zone */
+  .dropzone{
+    border:1.5px dashed var(--line);
+    border-radius:12px;
+    background:var(--panel-2);
+    padding:32px 24px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .dropzone.drag{border-color:var(--accent); background:var(--accent-dim);}
+  .dropzone svg{margin-bottom:10px;opacity:.7;}
+  .dropzone .dz-title{font-weight:600;font-size:15px;}
+  .dropzone .dz-sub{color:var(--muted);font-size:12.5px;margin-top:4px;font-family:'IBM Plex Mono',monospace;}
+  input[type=file]{display:none;}
+
+  .opts{display:flex;align-items:center;justify-content:space-between;margin-top:18px;flex-wrap:wrap;gap:12px;}
+  .toggle-row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+  .switch{position:relative;width:38px;height:20px;background:var(--line);border-radius:100px;cursor:pointer;transition:background .15s;flex-shrink:0;}
+  .switch.on{background:var(--accent);}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#0b0e14;transition:left .15s;}
+  .switch.on::after{left:20px;background:#06120d;}
+
+  .btn{
+    font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;
+    background:var(--accent);color:#06120d;border:none;border-radius:9px;
+    padding:11px 20px;cursor:pointer;transition:filter .15s, transform .1s;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn:active{transform:scale(.98);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text);}
+  .btn.ghost:hover{border-color:var(--accent);}
+
+  /* Progress card */
+  .progress-card{display:none;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px 28px;margin-bottom:28px;}
+  .progress-card.show{display:block;}
+  .progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;}
+  .progress-top .pname{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--muted);}
+  .progress-top .pcount{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text);}
+  .bar-track{height:8px;background:var(--panel-2);border-radius:100px;overflow:hidden;border:1px solid var(--line);}
+  .bar-fill{height:100%;width:0%;background:linear-gradient(90deg, var(--accent), #2bb88a);transition:width .25s ease;}
+
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px;}
+  .stat{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 14px;}
+  .stat .n{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;}
+  .stat .l{font-size:11.5px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.5px;}
+  .stat.valid .n{color:var(--accent);}
+  .stat.bounce .n{color:var(--danger2);}
+  .stat.catchall .n{color:var(--warn);}
+  .stat.unknown .n{color:var(--unknown);}
+
+  /* Results table */
+  .results-card{display:none;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px 28px;}
+  .results-card.show{display:block;}
+  .results-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+  .results-head h3{margin:0;font-size:16px;font-weight:600;}
+  .filters{display:flex;gap:6px;flex-wrap:wrap;}
+  .fbtn{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:6px 11px;border-radius:100px;
+    border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;
+  }
+  .fbtn.active{background:var(--panel-2);color:var(--text);border-color:var(--text);}
+
+  table{width:100%;border-collapse:collapse;margin-top:6px;}
+  thead th{
+    text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--line);
+  }
+  tbody td{padding:10px 10px;font-size:13.5px;border-bottom:1px solid var(--line);}
+  tbody tr:hover{background:var(--panel-2);}
+  td.email{font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  td.reason{color:var(--muted);font-size:12px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .badge{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 9px;border-radius:100px;display:inline-block;
+  }
+  .badge.Valid{background:var(--accent-dim);color:var(--accent);}
+  .badge.Bounce{background:var(--danger-dim);color:var(--danger2);}
+  .badge.Catch-All{background:var(--warn-dim);color:var(--warn);}
+  .badge.Unknown\/Error{background:var(--unknown-dim);color:var(--unknown);}
+
+  .table-wrap{max-height:480px;overflow:auto;border-radius:8px;}
+  .table-wrap::-webkit-scrollbar{width:8px;height:8px;}
+  .table-wrap::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+
+  .empty-note{color:var(--muted);font-size:13px;font-family:'IBM Plex Mono',monospace;text-align:center;padding:30px 0;}
+
+  /* Quick check */
+  .quick{margin-top:28px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 26px;}
+  .quick h3{margin:0 0 4px;font-size:15px;font-weight:600;}
+  .quick p{margin:0 0 14px;color:var(--muted);font-size:13px;}
+  .quick-row{display:flex;gap:10px;}
+  .quick-row input[type=text]{
+    flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;color:var(--text);
+    padding:11px 14px;font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none;
+  }
+  .quick-row input[type=text]:focus{border-color:var(--accent);}
+  .quick-result{margin-top:14px;display:none;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:13px;}
+  .quick-result.show{display:flex;}
+
+  footer{margin-top:50px;text-align:center;color:var(--muted);font-size:11.5px;font-family:'IBM Plex Mono',monospace;}
+  footer a{color:var(--muted);}
+
+  @media (max-width:640px){
+    .stat-row{grid-template-columns:repeat(2,1fr);}
+    .results-head{flex-direction:column;align-items:flex-start;}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="brand">
+      <div class="brand-mark">@</div>
+      <div>
+        <h1>Polluxa</h1>
+        <span class="tag">BULK EMAIL VERIFICATION ENGINE</span>
+      </div>
+    </div>
+    <div class="pill"><span class="dot"></span> Engine online</div>
+  </header>
+
+  <div class="hero">
+    <h2>Find out who bounces before you hit send.</h2>
+    <p>Upload a CSV or TXT list. Relay checks syntax, resolves MX records, and runs a live SMTP handshake against each domain to predict bounces — without ever delivering an email.</p>
+
+    <div class="dropzone" id="dropzone">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5ee6a8" stroke-width="1.6"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+      <div class="dz-title">Drop a .csv or .txt file, or click to browse</div>
+      <div class="dz-sub">ONE ADDRESS PER LINE · UP TO 10,000 EMAILS</div>
+      <input type="file" id="fileInput" accept=".csv,.txt">
+    </div>
+
+    <div class="opts">
+      <div class="toggle-row">
+        <div class="switch on" id="smtpToggle"></div>
+        <span>Run live SMTP handshake (deep verification)</span>
+      </div>
+      <button class="btn" id="startBtn" disabled>Start verification</button>
+    </div>
+  </div>
+
+  <div class="progress-card" id="progressCard">
+    <div class="progress-top">
+      <span class="pname mono" id="progressLabel">Verifying…</span>
+      <span class="pcount mono" id="progressCount">0 / 0</span>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+    <div class="stat-row">
+      <div class="stat valid"><div class="n" id="cntValid">0</div><div class="l">Valid</div></div>
+      <div class="stat bounce"><div class="n" id="cntBounce">0</div><div class="l">Bounce</div></div>
+      <div class="stat catchall"><div class="n" id="cntCatchall">0</div><div class="l">Catch-All</div></div>
+      <div class="stat unknown"><div class="n" id="cntUnknown">0</div><div class="l">Unknown</div></div>
+    </div>
+  </div>
+
+  <div class="results-card" id="resultsCard">
+    <div class="results-head">
+      <h3>Results</h3>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <div class="filters" id="filters">
+          <button class="fbtn active" data-f="all">All</button>
+          <button class="fbtn" data-f="Valid">Valid</button>
+          <button class="fbtn" data-f="Bounce">Bounce</button>
+          <button class="fbtn" data-f="Catch-All">Catch-All</button>
+          <button class="fbtn" data-f="Unknown/Error">Unknown</button>
+        </div>
+        <button class="btn ghost" id="downloadBtn">Download CSV</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:45%">Email</th><th style="width:15%">Status</th><th>Reason</th></tr></thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+      <div class="empty-note" id="emptyNote" style="display:none;">No rows match this filter.</div>
+    </div>
+  </div>
+
+  <div class="quick">
+    <h3>Quick check</h3>
+    <p>Verify a single address without uploading a file.</p>
+    <div class="quick-row">
+      <input type="text" id="quickInput" placeholder="someone@example.com">
+      <button class="btn ghost" id="quickBtn">Check</button>
+    </div>
+    <div class="quick-result" id="quickResult"></div>
+  </div>
+
+  <footer>Relay verifies syntax, DNS/MX, and SMTP acceptance locally — no email is ever sent. · <a href="/docs" target="_blank">API docs</a></footer>
+</div>
+
+<script>
+const API = ""; // same-origin
+let selectedFile = null;
+let currentJobId = null;
+let pollTimer = null;
+let allRows = [];
+let activeFilter = "all";
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const startBtn = document.getElementById('startBtn');
+const smtpToggle = document.getElementById('smtpToggle');
+let smtpOn = true;
+
+dropzone.addEventListener('click', () => fileInput.click());
+['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+dropzone.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(f){
+  selectedFile = f;
+  startBtn.disabled = false;
+  dropzone.querySelector('.dz-title').textContent = `Selected: ${f.name}`;
+  dropzone.querySelector('.dz-sub').textContent = `${(f.size/1024).toFixed(1)} KB · click "Start verification" to begin`;
+}
+
+smtpToggle.addEventListener('click', () => {
+  smtpOn = !smtpOn;
+  smtpToggle.classList.toggle('on', smtpOn);
+});
+
+startBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  startBtn.disabled = true;
+  startBtn.textContent = "Uploading…";
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+  fd.append('smtp_check', smtpOn);
+
+  try {
+    const res = await fetch(`${API}/api/upload`, { method:'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({detail:'Upload failed'}));
+      throw new Error(err.detail || 'Upload failed');
+    }
+    const data = await res.json();
+    currentJobId = data.job_id;
+    document.getElementById('progressCard').classList.add('show');
+    document.getElementById('progressCount').textContent = `0 / ${data.total}`;
+    startBtn.textContent = "Running…";
+    pollStatus();
+  } catch (e) {
+    alert(e.message);
+    startBtn.disabled = false;
+    startBtn.textContent = "Start verification";
+  }
+});
+
+function pollStatus(){
+  pollTimer = setInterval(async () => {
+    const res = await fetch(`${API}/api/status/${currentJobId}`);
+    const s = await res.json();
+    document.getElementById('progressCount').textContent = `${s.done} / ${s.total}`;
+    document.getElementById('barFill').style.width = `${s.percent}%`;
+    document.getElementById('cntValid').textContent = s.status_counts['Valid'] || 0;
+    document.getElementById('cntBounce').textContent = s.status_counts['Bounce'] || 0;
+    document.getElementById('cntCatchall').textContent = s.status_counts['Catch-All'] || 0;
+    document.getElementById('cntUnknown').textContent = s.status_counts['Unknown/Error'] || 0;
+
+    if (s.state === 'finished') {
+      clearInterval(pollTimer);
+      document.getElementById('progressLabel').textContent = "Verification complete";
+      startBtn.disabled = false;
+      startBtn.textContent = "Start verification";
+      loadResults();
+    }
+  }, 800);
+}
+
+async function loadResults(){
+  const res = await fetch(`${API}/api/results/${currentJobId}`);
+  const data = await res.json();
+  allRows = data.rows;
+  document.getElementById('resultsCard').classList.add('show');
+  renderRows();
+}
+
+function renderRows(){
+  const body = document.getElementById('resultsBody');
+  const rows = activeFilter === 'all' ? allRows : allRows.filter(r => r.Status === activeFilter);
+  body.innerHTML = '';
+  document.getElementById('emptyNote').style.display = rows.length ? 'none' : 'block';
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="email">${escapeHtml(r.EmailAddress)}</td>
+                    <td><span class="badge ${r.Status.replace('/', '\\/')}">${r.Status}</span></td>
+                    <td class="reason" title="${escapeHtml(r.Reason)}">${escapeHtml(r.Reason)}</td>`;
+    body.appendChild(tr);
+  }
+}
+
+document.getElementById('filters').addEventListener('click', e => {
+  if (!e.target.dataset.f) return;
+  activeFilter = e.target.dataset.f;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.toggle('active', b === e.target));
+  renderRows();
+});
+
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  if (!currentJobId) return;
+  window.location.href = `${API}/api/download/${currentJobId}`;
+});
+
+document.getElementById('quickBtn').addEventListener('click', async () => {
+  const email = document.getElementById('quickInput').value.trim();
+  if (!email) return;
+  const btn = document.getElementById('quickBtn');
+  btn.disabled = true; btn.textContent = "Checking…";
+  const fd = new FormData();
+  fd.append('email', email);
+  fd.append('smtp_check', smtpOn);
+  try {
+    const res = await fetch(`${API}/api/verify-single`, { method:'POST', body: fd });
+    const data = await res.json();
+    const box = document.getElementById('quickResult');
+    box.classList.add('show');
+    box.innerHTML = `<span class="badge ${data.status.replace('/', '\\/')}">${data.status}</span> <span style="color:var(--muted)">${escapeHtml(data.reason)}</span>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "Check";
+  }
+});
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s ?? '';
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
